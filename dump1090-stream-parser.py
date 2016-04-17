@@ -46,7 +46,7 @@ def main():
   # data format info:
   #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
   #    https://github.com/wiseman/node-sbs1
-  cur.execute("DROP TABLE IF EXISTS squitters")
+  #cur.execute("DROP TABLE IF EXISTS squitters")
   cur.execute("""CREATE TABLE IF NOT EXISTS
     squitters(
       message_type      VARCHAR(3) NOT NULL,
