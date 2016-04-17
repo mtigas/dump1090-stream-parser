@@ -2,13 +2,13 @@
 
 This software takes a [dump1090](https://github.com/antirez/dump1090) stream of [ADS-B](https://en.wikipedia.org/wiki/Automatic_dependent_surveillance_%E2%80%93_broadcast) messages and plops them into a database with a timestamp.
 
-> This fork optimizes for efficient data storage by using MySQL table compression, native numeric data types, and casting placeholder values to NULL where possible.
+> **Note**: This fork optimizes for efficient data storage by using MySQL table compression, native numeric data types, and casting placeholder values to NULL where possible.
 
 ## Useage
 
 You'll need a dump1090 instance running somewhere accessable on your network.
 
-> This fork relies on a mysql database hosted on the same machine. (`host=127.0.0.1 database=dump1090 user=dump1090 password=dump1090`) This fork also uses [MySQL innodb table compression](https://dev.mysql.com/doc/refman/5.7/en/innodb-compression-background.html), so your mileage may vary depending on your mysql server version and configuration.
+The script also currently relies on a MySQL database hosted on the same machine. (`host=127.0.0.1 database=dump1090 user=dump1090 password=dump1090`) [MySQL innodb table compression](https://dev.mysql.com/doc/refman/5.7/en/innodb-compression-background.html) is used, so your mileage may vary depending on your mysql server version and configuration.
 
 If dump1090 is runing on your current machine and you have the database set up, running
 
@@ -20,7 +20,7 @@ should automatically connect to it.
 
 Stop the stream by hitting control + c. This will write any remaining uncommitted lines to the database and exit.
 
-> Note that this fork also performs some data processing to turn numeric values into their native mysql times, catch null values, and otherwise optimize for efficient data storage (along with database table compression).
+> **Note**: This fork also performs some data processing to turn numeric values into their native mysql times, catch null values, and otherwise optimize for efficient data storage (along with database table compression). This hasn’t been thoroughly tested yet and *may* result in some data loss compared to the original script (and the raw SBS data stream).
 
 ###Complete usage and options
 
