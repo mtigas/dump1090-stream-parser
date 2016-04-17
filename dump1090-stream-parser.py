@@ -3,7 +3,7 @@
 
 import socket
 import datetime
-import mysql.connector as mariadb
+import mysql.connector
 import argparse
 import time
 
@@ -37,7 +37,7 @@ def main():
 	count_failed_connection_attempts = 1
 
 	# connect to database or create if it doesn't exist
-	conn = mariadb.connect(user='dump1090', password='dump1090', database='dump1090')
+	conn = mysql.connector.connect(user='dump1090', password='dump1090', database='dump1090')
 	cur = conn.cursor()
 
 	# set up the table if neccassary
@@ -180,7 +180,7 @@ def main():
 								print ts, "All caught up, %s rows, successfully written to database" % (count_since_commit)
 							count_since_commit = 0
 
-					except sqlite3.OperationalError:
+					except mysql.connector.Error:
 						print ts, "Could not write to database, will try to insert %s rows on next commit" % (count_since_commit + args.batch_size,)
 
 
@@ -199,7 +199,7 @@ def main():
 		conn.close()
 		print ts, "%s squitters added to your database" % (count_total,)
 
-	except sqlite3.ProgrammingError:
+	except mysql.connector.Error as err:
 		print "Error with ", line
 		quit()
 
