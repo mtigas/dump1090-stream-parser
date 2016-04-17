@@ -55,10 +55,6 @@ def main():
       aircraft_id       TEXT,
       hex_ident         VARCHAR(6),
       flight_id         TEXT,
-      generated_date    DATE,
-      generated_time    TIME,
-      logged_date       DATE,
-      logged_time       TIME,
       callsign          TEXT,
       altitude          MEDIUMINT,
       ground_speed      SMALLINT,
@@ -220,6 +216,11 @@ def main():
             logged_datetime = None
           line.append(logged_datetime)
 
+          line.pop(6)
+          line.pop(6)
+          line.pop(6)
+          line.pop(6)
+
           try:
             # add row to database
             qry = """INSERT INTO squitters (
@@ -229,10 +230,6 @@ def main():
                 aircraft_id,
                 hex_ident,
                 flight_id,
-                generated_date,
-                generated_time,
-                logged_date,
-                logged_time,
                 callsign,
                 altitude,
                 ground_speed,
