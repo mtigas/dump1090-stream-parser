@@ -14,7 +14,7 @@ HOST = "localhost"
 PORT = 30003
 DB = "adsb_messages.db"
 BUFFER_SIZE = 100
-BATCH_SIZE = 1
+BATCH_SIZE = 100
 CONNECT_ATTEMPT_LIMIT = 10
 CONNECT_ATTEMPT_DELAY = 5.0
 
@@ -46,19 +46,19 @@ def main():
   # data format info:
   #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
   #    https://github.com/wiseman/node-sbs1
-  #cur.execute("DROP TABLE IF EXISTS squitters")
+  cur.execute("DROP TABLE IF EXISTS squitters")
   cur.execute("""CREATE TABLE IF NOT EXISTS
     squitters(
       message_type      VARCHAR(3) NOT NULL,
       transmission_type TINYINT(1) UNSIGNED,
       session_id        TEXT,
       aircraft_id       TEXT,
-      hex_ident         TEXT,
+      hex_ident         VARCHAR(6),
       flight_id         TEXT,
-      generated_date    TEXT,
-      generated_time    TEXT,
-      logged_date       TEXT,
-      logged_time       TEXT,
+      generated_date    DATE,
+      generated_time    TIME,
+      logged_date       DATE,
+      logged_time       TIME,
       callsign          TEXT,
       altitude          MEDIUMINT,
       ground_speed      SMALLINT,
@@ -71,8 +71,10 @@ def main():
       emergency         BOOLEAN,
       spi               BOOLEAN,
       is_on_ground      BOOLEAN,
-      parsed_time       TEXT
-    ) ROW_FORMAT=COMPRESSED;
+      parsed_time       DATETIME NOT NULL,
+      generated_datetime DATETIME,
+      logged_datetime   DATETIME
+    ) ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
   """)
 
   start_time = datetime.datetime.utcnow()
@@ -98,7 +100,6 @@ def main():
     while True:
       #get current time
       cur_time = datetime.datetime.utcnow()
-      ds = cur_time.isoformat()
       ts = cur_time.strftime("%H:%M:%S")
 
       # receive a stream message
@@ -157,6 +158,10 @@ def main():
             elif idx in range(2,11):
               if v == '':
                 line[idx] = None
+              elif idx in set([6,8]): # generated_date, logged_date
+                line[idx] = datetime.datetime.strptime(v, '%Y/%m/%d').date()
+              elif idx in set([7,9]): # generated_time, logged_time
+                line[idx] = datetime.datetime.strptime(v, '%H:%M:%S.%f').time()
               else:
                 line[idx] = v
             # 11-13 is int or null
@@ -192,8 +197,28 @@ def main():
               else:
                 line[idx] = True
 
-          # add the current time to the row
-          line.append(ds)
+          # session_id, aircraft_id, flight_id are censored with '11111'
+          if (line[2] == '111' and line[3] == '11111' and line[5] == '111111'):
+            line[2] = None
+            line[3] = None
+            line[5] = None
+
+          # "parsed_time"
+          line.append(cur_time)
+
+          # "generated_datetime"
+          if (line[6] and line[7]):
+            generated_datetime = datetime.datetime.combine(line[6], line[7])
+          else:
+            generated_datetime = None
+          line.append(generated_datetime)
+
+          # "logged_datetime"
+          if (line[8] and line[9]):
+            logged_datetime = datetime.datetime.combine(line[8], line[9])
+          else:
+            logged_datetime = None
+          line.append(logged_datetime)
 
           try:
             # add row to database
@@ -220,7 +245,9 @@ def main():
                 emergency,
                 spi,
                 is_on_ground,
-                parsed_time
+                parsed_time,
+                generated_datetime,
+                logged_datetime
               )
               VALUES (""" + ", ".join(["%s"] * len(line)) + ")"
             cur.executemany(qry, [line])
