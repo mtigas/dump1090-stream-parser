@@ -3,7 +3,7 @@
 
 import socket
 import datetime
-import sqlite3
+import mysql.connector as mariadb
 import argparse
 import time
 
@@ -23,7 +23,6 @@ def main():
 	parser = argparse.ArgumentParser(description="A program to process dump1090 messages then insert them into a database")
 	parser.add_argument("-l", "--location", type=str, default=HOST, help="This is the network location of your dump1090 broadcast. Defaults to %s" % (HOST,))
 	parser.add_argument("-p", "--port", type=int, default=PORT, help="The port broadcasting in SBS-1 BaseStation format. Defaults to %s" % (PORT,))
-	parser.add_argument("-d", "--database", type=str, default=DB, help="The location of a database file to use or create. Defaults to %s" % (DB,))
 	parser.add_argument("--buffer-size", type=int, default=BUFFER_SIZE, help="An integer of the number of bytes to read at a time from the stream. Defaults to %s" % (BUFFER_SIZE,))
 	parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="An integer of the number of rows to write to the database at a time. If you turn off WAL mode, a lower number makes it more likely that your database will be locked when you try to query it. Defaults to %s" % (BATCH_SIZE,))
 	parser.add_argument("--connect-attempt-limit", type=int, default=CONNECT_ATTEMPT_LIMIT, help="An integer of the number of times to try (and fail) to connect to the dump1090 broadcast before qutting. Defaults to %s" % (CONNECT_ATTEMPT_LIMIT,))
@@ -38,9 +37,8 @@ def main():
 	count_failed_connection_attempts = 1
 
 	# connect to database or create if it doesn't exist
-	conn = sqlite3.connect(args.database)
+	conn = mariadb.connect(user='dump1090', password='dump1090', database='dump1090')
 	cur = conn.cursor()
-	cur.execute('PRAGMA journal_mode=wal')
 
 	# set up the table if neccassary
 	cur.execute("""CREATE TABLE IF NOT EXISTS
@@ -56,19 +54,19 @@ def main():
 			logged_date TEXT,
 			logged_time TEXT,
 			callsign TEXT,
-			altitude INT,
-			ground_speed INT,
+			altitude MEDIUMINT,
+			ground_speed SMALLINT,
 			track INT,
-			lat REAL,
-			lon REAL,
-			vertical_rate REAL,
+			lat DECIMAL(8,5),
+			lon DECIMAL(8,5),
+			vertical_rate FLOAT,
 			squawk TEXT,
-			alert INT,
-			emergency INT,
+			alert BOOLEAN,
+			emergency BOOLEAN,
 			spi INT,
-			is_on_ground INT,
+			is_on_ground BOOLEAN,
 			parsed_time TEXT
-		)
+		) ROW_FORMAT=COMPRESSED;
 	""")
 
 	start_time = datetime.datetime.utcnow()

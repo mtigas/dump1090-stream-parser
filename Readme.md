@@ -4,7 +4,7 @@ This software takes a [dump1090](https://github.com/antirez/dump1090) stream of 
 
 ## Useage
 
-You'll need a dump1090 instance running somewhere accessable on your network
+You'll need a dump1090 instance running somewhere accessable on your network.
 
 If dump1090 is runing on your current machine running
 
@@ -12,14 +12,12 @@ If dump1090 is runing on your current machine running
 python dump1090-stream-parser.py
 ```
 
-will create and start populating a sqlite database named adsb_messages.db in your current directory
-
 Stop the stream by hitting control + c. This will write any remaining uncommitted lines to the database and exit. 
 
 ###Complete usage and options
 
 ```
-usage: dump1090-stream-parser.py [-h] [-l LOCATION] [-p PORT] [-d DATABASE]
+usage: dump1090-stream-parser.py [-h] [-l LOCATION] [-p PORT]
                                  [--buffer-size BUFFER_SIZE]
                                  [--batch-size BATCH_SIZE]
                                  [--connect-attempt-limit CONNECT_ATTEMPT_LIMIT]
@@ -34,9 +32,6 @@ optional arguments:
                         broadcast. Defaults to localhost
   -p PORT, --port PORT  The port broadcasting in SBS-1 BaseStation format.
                         Defaults to 30003
-  -d DATABASE, --database DATABASE
-                        The location of a database file to use or create.
-                        Defaults to adsb_messages.db
   --buffer-size BUFFER_SIZE
                         An integer of the number of bytes to read at a time
                         from the stream. Defaults to 100
@@ -61,12 +56,6 @@ Connecting to dump1090 instance running on a raspberry pi on your local network
 
 ```
 python dump1090-stream-parser.py -l raspberrypi.local
-```
-
-Using a database in a different directory
-
-```
-python dump1090-stream-parser.py -d /path/to/database.db
 ```
 
 Write every record to the database immediately instead of batching insertions 
