@@ -20,7 +20,6 @@ CONNECT_ATTEMPT_DELAY = 5.0
 
 
 def main():
-
   #set up command line options
   parser = argparse.ArgumentParser(description="A program to process dump1090 messages then insert them into a database")
   parser.add_argument("-l", "--location", type=str, default=HOST, help="This is the network location of your dump1090 broadcast. Defaults to %s" % (HOST,))
@@ -38,40 +37,12 @@ def main():
   count_total = 0
   count_failed_connection_attempts = 1
 
-  # connect to database or create if it doesn't exist
   conn = mysql.connector.connect(user='dump1090', password='dump1090', database='dump1090')
   cur = conn.cursor()
 
   # set up the table if neccassary
-  # data format info:
-  #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
-  #    https://github.com/wiseman/node-sbs1
-  #cur.execute("DROP TABLE IF EXISTS squitters")
-  cur.execute("""CREATE TABLE IF NOT EXISTS
-    squitters(
-      message_type      VARCHAR(3) NOT NULL,
-      transmission_type TINYINT(1) UNSIGNED,
-      session_id        TEXT,
-      aircraft_id       TEXT,
-      hex_ident         VARCHAR(6),
-      flight_id         TEXT,
-      callsign          TEXT,
-      altitude          MEDIUMINT,
-      ground_speed      SMALLINT,
-      track             INT,
-      lat               DECIMAL(8,5),
-      lon               DECIMAL(8,5),
-      vertical_rate     INT,
-      squawk            TEXT,
-      alert             BOOLEAN,
-      emergency         BOOLEAN,
-      spi               BOOLEAN,
-      is_on_ground      BOOLEAN,
-      parsed_time       DATETIME NOT NULL,
-      generated_datetime DATETIME,
-      logged_datetime   DATETIME
-    ) ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
-  """)
+  table_setup(cur)
+
 
   start_time = datetime.datetime.utcnow()
 
@@ -89,8 +60,9 @@ def main():
   else:
     quit()
 
-  data_str = ""
 
+  # listen to socket for data
+  data_str = ""
   try:
     #loop until an exception
     while True:
@@ -194,7 +166,8 @@ def main():
                 line[idx] = True
 
           # session_id, aircraft_id, flight_id are censored with '11111'
-          if (line[2] == '111' and line[3] == '11111' and line[5] == '111111'):
+          if (line[2] == '111' and line[3] == '11111' and line[5] == '111111') \
+          or (line[2] == '1' and line[3] == '1' and line[5] == '1'):
             line[2] = None
             line[3] = None
             line[5] = None
@@ -215,6 +188,9 @@ def main():
           else:
             logged_datetime = None
           line.append(logged_datetime)
+
+          is_mlat = (args.port == 31003)
+          line.append(is_mlat)
 
           line.pop(6)
           line.pop(6)
@@ -244,7 +220,8 @@ def main():
                 is_on_ground,
                 parsed_time,
                 generated_datetime,
-                logged_datetime
+                logged_datetime,
+                is_mlat
               )
               VALUES (""" + ", ".join(["%s"] * len(line)) + ")"
             cur.executemany(qry, [line])
@@ -256,7 +233,7 @@ def main():
             # commit the new rows to the database in batches
             if count_since_commit % args.batch_size == 0:
               conn.commit()
-              print "averging %s rows per second" % (float(count_total) / (cur_time - start_time).total_seconds(),)
+              print "%s:%s - avg %.1f rows/sec" % (args.location, args.port, float(count_total) / (cur_time - start_time).total_seconds(),)
               if count_since_commit > args.batch_size:
                 print ts, "All caught up, %s rows, successfully written to database" % (count_since_commit)
               count_since_commit = 0
@@ -292,6 +269,52 @@ def connect_to_socket(loc,port):
   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   s.connect((loc, port))
   return s
+
+
+def table_setup(dbcursor):
+  # data format info:
+  #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
+  #    https://github.com/wiseman/node-sbs1
+  dbcursor.execute("DROP TABLE IF EXISTS squitters")
+  dbcursor.execute("""CREATE TABLE IF NOT EXISTS
+    squitters(
+      message_type      VARCHAR(3) NOT NULL,
+      transmission_type TINYINT(1) UNSIGNED NOT NULL,
+      session_id        TEXT,
+      aircraft_id       TEXT,
+      hex_ident         VARCHAR(6) NOT NULL,
+      flight_id         TEXT,
+      callsign          TEXT,
+      altitude          MEDIUMINT,
+      ground_speed      SMALLINT,
+      track             INT,
+      lat               DECIMAL(8,5),
+      lon               DECIMAL(8,5),
+      vertical_rate     INT,
+      squawk            TEXT,
+      alert             BOOLEAN,
+      emergency         BOOLEAN,
+      spi               BOOLEAN,
+      is_on_ground      BOOLEAN,
+      parsed_time       DATETIME NOT NULL,
+      generated_datetime DATETIME,
+      logged_datetime   DATETIME,
+      is_mlat           BOOLEAN,
+      INDEX idx_parsed_time(parsed_time),
+      INDEX idx_message_type(message_type),
+      INDEX idx_transmission_type(transmission_type),
+      INDEX idx_hex_ident(hex_ident),
+      INDEX idx_is_mlat(is_mlat)
+    )
+    ENGINE=InnoDB
+    ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
+    CHARACTER SET utf8
+    COLLATE utf8_general_ci
+  """)
+
+
+
+
 
 if __name__ == '__main__':
   main()

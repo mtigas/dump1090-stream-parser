@@ -47,7 +47,7 @@ optional arguments:
                         An integer of the number of rows to write to the
                         database at a time. A lower number makes it more
                         likely that your database will be locked when you try
-                        to query it. Defaults to 50
+                        to query it. Defaults to 100
   --connect-attempt-limit CONNECT_ATTEMPT_LIMIT
                         An integer of the number of times to try (and fail) to
                         connect to the dump1090 broadcast before qutting.
@@ -79,4 +79,19 @@ python dump1090-stream-parser.py --buffer-size 1024
 Connect to the local machine via ip address and save records in 20 line batches to todays_squitters.db
 ```
 python dump1090-stream-parser.py -l 127.0.0.1 -d todays_squitters.db --batch-size 20
+```
+
+---
+
+If you have trouble getting dump1090 to emit [multilateration](https://en.wikipedia.org/wiki/Multilateration) (MLAT) data you receive from flightaware, you can make `piaware-config` provide it's own basestation port by doing something like `basestation,listen,31003`, i.e.:
+
+```
+sudo piaware-config -mlatResultsFormat "beast,connect,127.0.0.1:30104 beast,connect,feed.adsbexchange.com:30005 basestation,listen,31003"
+```
+
+And then you can just run another copy of dump1090-stream-parser to catch that data.
+```
+python dump1090-stream-parser.py -p 30003 &
+python dump1090-stream-parser.py -p 31003 --batch-size 10 &
+wait
 ```
