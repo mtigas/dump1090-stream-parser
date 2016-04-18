@@ -18,6 +18,13 @@ BATCH_SIZE = 100
 CONNECT_ATTEMPT_LIMIT = 10
 CONNECT_ATTEMPT_DELAY = 5.0
 
+# we'll discard any rows with `transmission_type` not in this set.
+# 8 (all call reply) is very frequent but does not normally carry data
+# for us. 7 (air to air) is also common but only contains altitude.
+# your mileage may vary. see the following:
+#    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
+#    https://github.com/wiseman/node-sbs1
+ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7})
 
 def main():
   #set up command line options
@@ -113,10 +120,10 @@ def main():
           # clean up some values first
           for (idx, val) in enumerate(line):
             v = val.strip()
-            # 0 is 2-3 char
+            # 0 message type is 2-3 char
             if idx == 0:
               line[idx] = v.strip("0123456789").strip()
-            # 1 is int or null
+            # 1 transmission type is int or null
             if idx == 1:
               if v == '':
                 line[idx] = None
@@ -165,7 +172,12 @@ def main():
               else:
                 line[idx] = True
 
-          # session_id, aircraft_id, flight_id are censored with '11111'
+          # transmission types; skip if it's a type that we
+          # don't care to log in the database.
+          if line[1] not in ONLY_LOG_TYPES:
+            continue
+
+          # session_id, aircraft_id, flight_id are sometimes censored with '11111'?
           if (line[2] == '111' and line[3] == '11111' and line[5] == '111111') \
           or (line[2] == '1' and line[3] == '1' and line[5] == '1'):
             line[2] = None
@@ -189,9 +201,13 @@ def main():
             logged_datetime = None
           line.append(logged_datetime)
 
+          # store whether we got this from the piaware mlat output basestation
+          # (otherwise, we got it directly from dump1090)
           is_mlat = (args.port == 31003)
           line.append(is_mlat)
 
+          # remove the generated & logged date/time fields. we'll just
+          # store the combined value that we just calculated
           line.pop(6)
           line.pop(6)
           line.pop(6)
@@ -275,7 +291,7 @@ def table_setup(dbcursor):
   # data format info:
   #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
   #    https://github.com/wiseman/node-sbs1
-  dbcursor.execute("DROP TABLE IF EXISTS squitters")
+  #dbcursor.execute("DROP TABLE IF EXISTS squitters")
   dbcursor.execute("""CREATE TABLE IF NOT EXISTS
     squitters(
       message_type      VARCHAR(3) NOT NULL,

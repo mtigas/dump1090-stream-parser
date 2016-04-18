@@ -2,6 +2,8 @@
 
 This software takes a [dump1090](https://github.com/antirez/dump1090) stream of [ADS-B](https://en.wikipedia.org/wiki/Automatic_dependent_surveillance_%E2%80%93_broadcast) messages and plops them into a database with a timestamp.
 
+You can read about the general ADS-B "basestation" data format [here](http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm) and [here](https://github.com/wiseman/node-sbs1/blob/master/README.md).
+
 > **Note**: This fork optimizes for efficient data storage by using MySQL table compression, native numeric data types, and casting placeholder values to NULL where possible.
 
 ## Useage
@@ -20,7 +22,7 @@ should automatically connect to it.
 
 Stop the stream by hitting control + c. This will write any remaining uncommitted lines to the database and exit.
 
-> **Note**: This fork also performs some data processing to turn numeric values into their native mysql times, catch null values, and otherwise optimize for efficient data storage (along with database table compression). This hasn’t been thoroughly tested yet and *may* result in some data loss compared to the original script (and the raw SBS data stream).
+> **Note**: This fork also performs some filtering & data processing to turn numeric values into their native mysql times, catch null values, and otherwise optimize for efficient data storage (along with database table compression). This hasn’t been thoroughly tested yet and *may* result in some data loss compared to the original script (and the raw SBS data stream).
 
 ###Complete usage and options
 
