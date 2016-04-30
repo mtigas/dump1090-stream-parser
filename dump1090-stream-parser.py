@@ -256,14 +256,20 @@ def main():
           line.pop(6)
           line.pop(6)
 
+          # move squawk from line[13] to line[0]
+          line = [line.pop(13)] + line
+          # move icao address from line[5] (originally 4) to line[0]
+          line = [line.pop(5)] + line
+
           try:
             # add row to database
             qry = """INSERT INTO squitters (
+                icao_addr,
+                decimal_squawk,
                 message_type,
                 transmission_type,
                 session_id,
                 aircraft_id,
-                hex_ident,
                 flight_id,
                 callsign,
                 altitude,
@@ -272,7 +278,6 @@ def main():
                 lat,
                 lon,
                 vertical_rate,
-                squawk,
                 alert,
                 emergency,
                 spi,
@@ -282,7 +287,10 @@ def main():
                 logged_datetime,
                 is_mlat
               )
-              VALUES (""" + ", ".join(["%s"] * len(line)) + ")"
+              VALUES (
+                CONV(%s, 16, 10),
+                CONV(%s, 8, 10),
+                """ + ", ".join(["%s"] * (len(line)-2)) + ")"
             cur.executemany(qry, [line])
 
             # increment counts
@@ -341,7 +349,7 @@ def table_setup(dbcursor):
       transmission_type TINYINT(1) UNSIGNED NOT NULL,
       session_id        TEXT,
       aircraft_id       TEXT,
-      hex_ident         VARCHAR(6) NOT NULL,
+      icao_addr         MEDIUMINT UNSIGNED NOT NULL,
       flight_id         TEXT,
       callsign          TEXT,
       altitude          MEDIUMINT,
@@ -350,7 +358,7 @@ def table_setup(dbcursor):
       lat               DECIMAL(8,5),
       lon               DECIMAL(8,5),
       vertical_rate     INT,
-      squawk            TEXT,
+      decimal_squawk    SMALLINT UNSIGNED,
       alert             BOOLEAN,
       emergency         BOOLEAN,
       spi               BOOLEAN,
@@ -362,7 +370,7 @@ def table_setup(dbcursor):
       INDEX idx_parsed_time(parsed_time),
       INDEX idx_message_type(message_type),
       INDEX idx_transmission_type(transmission_type),
-      INDEX idx_hex_ident(hex_ident),
+      INDEX idx_icao_addr(icao_addr),
       INDEX idx_is_mlat(is_mlat)
     )
     ENGINE=InnoDB

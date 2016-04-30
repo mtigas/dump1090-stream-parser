@@ -6,7 +6,7 @@ You can read about the general ADS-B "basestation" data format [here](http://woo
 
 > **Note**: This fork optimizes for efficient data storage by using MySQL table compression, native numeric data types, and casting placeholder values to NULL where possible.
 
-## Useage
+## Usage
 
 You'll need a dump1090 instance running somewhere accessable on your network.
 
@@ -14,7 +14,7 @@ The script also currently relies on a MySQL database hosted on the same machine.
 
 If dump1090 is runing on your current machine and you have the database set up, running
 
-```
+```sh
 python dump1090-stream-parser.py
 ```
 
@@ -62,24 +62,24 @@ optional arguments:
 
 ## Examples
 
-Connecting to dump1090 instance running on a raspberry pi on your local network 
+Connecting to dump1090 instance running on a raspberry pi on your local network
 
-```
+```sh
 python dump1090-stream-parser.py -l raspberrypi.local
 ```
 
-Write every record to the database immediately instead of batching insertions 
-```
+Write every record to the database immediately instead of batching insertions
+```sh
 python dump1090-stream-parser.py --batch-size 1
 ```
 
 Read larger chunks from the stream
-```
+```sh
 python dump1090-stream-parser.py --buffer-size 1024
 ```
 
 Connect to the local machine via ip address and save records in 20 line batches to todays_squitters.db
-```
+```sh
 python dump1090-stream-parser.py -l 127.0.0.1 -d todays_squitters.db --batch-size 20
 ```
 
@@ -87,13 +87,32 @@ python dump1090-stream-parser.py -l 127.0.0.1 -d todays_squitters.db --batch-siz
 
 If you have trouble getting dump1090 to emit [multilateration](https://en.wikipedia.org/wiki/Multilateration) (MLAT) data you receive from flightaware, you can make `piaware-config` provide it's own basestation port by doing something like `basestation,listen,31003`, i.e.:
 
-```
+```sh
 sudo piaware-config -mlatResultsFormat "beast,connect,127.0.0.1:30104 beast,connect,feed.adsbexchange.com:30005 basestation,listen,31003"
 ```
 
 And then you can just run another copy of dump1090-stream-parser to catch that data.
-```
+```sh
 python dump1090-stream-parser.py -p 30003 &
 python dump1090-stream-parser.py -p 31003 --batch-size 10 &
 wait
+```
+
+
+## Querying
+
+The ICAO address is stored as the raw base10 integer representation of the
+24-bit address (which is usually displayed as a 6-character hex string).
+
+The squawk, which is a [four digit octal code](https://en.wikipedia.org/wiki/Transponder_(aeronautics)#Transponder_codes) (base 8), is also stored as a raw base10 integer.
+
+To query for these or display "normal" output, you can use the `CONV()` function in mysql:
+
+```sql
+SELECT transmission_type, CONV(icao_addr, 10, 16) as hex_addr, callsign, altitude, lat, lon, ground_speed, track, CONV(decimal_squawk, 10, 8) as squawk, parsed_time as utctime
+  FROM squitters
+  WHERE ((lat IS NOT NULL && lon IS NOT NULL) OR (callsign IS NOT NULL))
+    AND (icao_addr = CONV("AA3410", 16, 10))
+  ORDER BY parsed_time DESC
+  LIMIT 50;
 ```
