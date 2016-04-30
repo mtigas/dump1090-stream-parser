@@ -18,6 +18,28 @@ BATCH_SIZE = 100
 CONNECT_ATTEMPT_LIMIT = 10
 CONNECT_ATTEMPT_DELAY = 5.0
 
+#
+TRANSMISSION_TYPE_TTL = (
+  None,  # 0 doesnt exist
+  datetime.timedelta(seconds=1),  #1: callsign, infrequently broadcast anyway
+  datetime.timedelta(seconds=1),   #2: position
+  None, #3: position/alt -> #2
+  datetime.timedelta(seconds=5),  #4: speed/heading
+  datetime.timedelta(seconds=10),  #5: altitude-only
+  datetime.timedelta(seconds=1),  #6: squawk
+  None,  #7: altitude-only -> #5
+)
+TRANSMISSION_TYPE_ALIAS = (
+  0,
+  1,
+  2,
+  2, # 3 -> 2
+  4,
+  5,
+  6,
+  5  # 7 -> 5
+)
+
 # we'll discard any rows with `transmission_type` not in this set.
 # 8 (all call reply) is very frequent but does not normally carry data
 # for us. 7 (air to air) is also common but only contains altitude.
@@ -39,6 +61,9 @@ def main():
   # parse command line options
   args = parser.parse_args()
 
+  # Are we receiving data from the flightaware mlat client?
+  is_mlat = (args.port == 31003)
+
   # print args.accumulate(args.in)
   count_since_commit = 0
   count_total = 0
@@ -50,6 +75,10 @@ def main():
   # set up the table if neccassary
   table_setup(cur)
 
+  # log {(icao, msgtype): timestamp} pairs to eliminate some duplicate
+  # entries. based on a timestamp here, we throttle based on
+  # the value of TRANSMISSION_TYPE_TTL[msgtype]
+  aircraft_msg_ttls = {}
 
   start_time = datetime.datetime.utcnow()
 
@@ -66,7 +95,6 @@ def main():
       time.sleep(args.connect_attempt_delay)
   else:
     quit()
-
 
   # listen to socket for data
   data_str = ""
@@ -177,6 +205,22 @@ def main():
           if line[1] not in ONLY_LOG_TYPES:
             continue
 
+          # Decide whether or not to skip recording datapoint based on
+          # a TTL (based on transmission_type).
+          msgtype_timeout_alias = TRANSMISSION_TYPE_ALIAS[line[1]]
+          msgtype_key = (line[4], msgtype_timeout_alias)
+          msgtype_ttl = TRANSMISSION_TYPE_TTL[msgtype_timeout_alias]
+          existing_timestamp = aircraft_msg_ttls.get(msgtype_key, datetime.datetime(1970,1,1))
+          #print msgtype_key, existing_timestamp
+          if (not is_mlat) and (cur_time - existing_timestamp) <= msgtype_ttl:
+            # too soon.
+            #print "\ttoo soon"
+            continue
+          #print "\tok"
+
+          # Reset TTL timer now that we're storing data for this packet
+          aircraft_msg_ttls[msgtype_key] = cur_time
+
           # session_id, aircraft_id, flight_id are sometimes censored with '11111'?
           if (line[2] == '111' and line[3] == '11111' and line[5] == '111111') \
           or (line[2] == '1' and line[3] == '1' and line[5] == '1'):
@@ -203,7 +247,6 @@ def main():
 
           # store whether we got this from the piaware mlat output basestation
           # (otherwise, we got it directly from dump1090)
-          is_mlat = (args.port == 31003)
           line.append(is_mlat)
 
           # remove the generated & logged date/time fields. we'll just
