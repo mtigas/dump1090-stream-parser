@@ -76,6 +76,7 @@ def main():
   count_total = 0
   count_failed_connection_attempts = 1
 
+  print "%s: Connecting to mysql..." % args.client_id
   conn = mysql.connector.connect(
     host=args.mysql_host,
     port=args.mysql_port,
@@ -84,6 +85,7 @@ def main():
     database=args.mysql_database
   )
   cur = conn.cursor()
+  print "%s: Connected." % args.client_id
 
   # set up the table if neccassary
   table_setup(cur)
@@ -96,15 +98,16 @@ def main():
   start_time = datetime.datetime.utcnow()
 
   # open a socket connection
+  print "%s: Connecting to dump1090..." % args.client_id
   while count_failed_connection_attempts < args.connect_attempt_limit:
     try:
       s = connect_to_socket(args.location, args.port)
       count_failed_connection_attempts = 1
-      print "Connected to dump1090 broadcast"
+      print "%s: Connected to dump1090 broadcast" % args.client_id
       break
     except socket.error:
       count_failed_connection_attempts += 1
-      print "Cannot connect to dump1090 broadcast. Making attempt %s." % (count_failed_connection_attempts)
+      print "%s: Cannot connect to dump1090 broadcast. Making attempt %s." % (args.client_id, count_failed_connection_attempts)
       time.sleep(args.connect_attempt_delay)
   else:
     quit()
@@ -316,7 +319,7 @@ def main():
             # commit the new rows to the database in batches
             if count_since_commit % args.batch_size == 0:
               conn.commit()
-              print "%s:%s - avg %.1f rows/sec" % (args.location, args.port, float(count_total) / (cur_time - start_time).total_seconds(),)
+              print "%s: %s:%s - avg %.1f rows/sec" % (args.client_id, args.location, args.port, float(count_total) / (cur_time - start_time).total_seconds(),)
               if count_since_commit > args.batch_size:
                 print ts, "All caught up, %s rows, successfully written to database" % (count_since_commit)
               count_since_commit = 0
