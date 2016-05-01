@@ -2,3 +2,9 @@
 *.db
 *.db-journal
 *.swp
+
+bin/
+include/
+lib/
+.Python
+pip-selfcheck.json

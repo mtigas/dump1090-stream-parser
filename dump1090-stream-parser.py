@@ -12,9 +12,8 @@ import traceback
 #defaults
 HOST = "localhost"
 PORT = 30003
-DB = "adsb_messages.db"
 BUFFER_SIZE = 100
-BATCH_SIZE = 100
+BATCH_SIZE = 20
 CONNECT_ATTEMPT_LIMIT = 10
 CONNECT_ATTEMPT_DELAY = 5.0
 
@@ -53,6 +52,14 @@ def main():
   parser = argparse.ArgumentParser(description="A program to process dump1090 messages then insert them into a database")
   parser.add_argument("-l", "--location", type=str, default=HOST, help="This is the network location of your dump1090 broadcast. Defaults to %s" % (HOST,))
   parser.add_argument("-p", "--port", type=int, default=PORT, help="The port broadcasting in SBS-1 BaseStation format. Defaults to %s" % (PORT,))
+  parser.add_argument("-c", "--client-id", type=int, default=0, help="A custom identifier to tag rows from different input sources.")
+
+  parser.add_argument("--mysql-host", type=str, default="localhost")
+  parser.add_argument("--mysql-port", type=int, default=3306)
+  parser.add_argument("--mysql-user", type=str, default="dump1090")
+  parser.add_argument("--mysql-pass", type=str, default="dump1090")
+  parser.add_argument("--mysql-database", type=str, default="dump1090")
+
   parser.add_argument("--buffer-size", type=int, default=BUFFER_SIZE, help="An integer of the number of bytes to read at a time from the stream. Defaults to %s" % (BUFFER_SIZE,))
   parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="An integer of the number of rows to write to the database at a time. If you turn off WAL mode, a lower number makes it more likely that your database will be locked when you try to query it. Defaults to %s" % (BATCH_SIZE,))
   parser.add_argument("--connect-attempt-limit", type=int, default=CONNECT_ATTEMPT_LIMIT, help="An integer of the number of times to try (and fail) to connect to the dump1090 broadcast before qutting. Defaults to %s" % (CONNECT_ATTEMPT_LIMIT,))
@@ -69,7 +76,13 @@ def main():
   count_total = 0
   count_failed_connection_attempts = 1
 
-  conn = mysql.connector.connect(user='dump1090', password='dump1090', database='dump1090')
+  conn = mysql.connector.connect(
+    host=args.mysql_host,
+    port=args.mysql_port,
+    user=args.mysql_user,
+    password=args.mysql_pass,
+    database=args.mysql_database
+  )
   cur = conn.cursor()
 
   # set up the table if neccassary
@@ -249,6 +262,8 @@ def main():
           # (otherwise, we got it directly from dump1090)
           line.append(is_mlat)
 
+          line.append(args.client_id)
+
           # remove the generated & logged date/time fields. we'll just
           # store the combined value that we just calculated
           line.pop(6)
@@ -285,7 +300,8 @@ def main():
                 parsed_time,
                 generated_datetime,
                 logged_datetime,
-                is_mlat
+                is_mlat,
+                client_id
               )
               VALUES (
                 CONV(%s, 16, 10),
@@ -367,11 +383,13 @@ def table_setup(dbcursor):
       generated_datetime DATETIME,
       logged_datetime   DATETIME,
       is_mlat           BOOLEAN,
+      client_id         TINYINT UNSIGNED NOT NULL DEFAULT 0,
       INDEX idx_parsed_time(parsed_time),
       INDEX idx_message_type(message_type),
       INDEX idx_transmission_type(transmission_type),
       INDEX idx_icao_addr(icao_addr),
-      INDEX idx_is_mlat(is_mlat)
+      INDEX idx_is_mlat(is_mlat),
+      INDEX idx_client_id(client_id)
     )
     ENGINE=InnoDB
     ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
