@@ -84,6 +84,7 @@ python dump1090-stream-parser.py -l 127.0.0.1 -d todays_squitters.db --batch-siz
 ```
 
 A hackish way to run this as a daemon is provided in `example-daemon.sh`.
+
 ---
 
 If you have trouble getting dump1090 to emit [multilateration](https://en.wikipedia.org/wiki/Multilateration) (MLAT) data you receive from flightaware, you can make `piaware-config` provide it's own basestation port by doing something like `basestation,listen,31003`, i.e.:
