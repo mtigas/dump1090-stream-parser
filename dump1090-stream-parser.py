@@ -8,13 +8,13 @@ import mysql.connector
 import argparse
 import time
 import traceback
+import sys
 
 #defaults
 HOST = "localhost"
 PORT = 30003
 BUFFER_SIZE = 100
 BATCH_SIZE = 20
-CONNECT_ATTEMPT_LIMIT = 10
 CONNECT_ATTEMPT_DELAY = 5.0
 
 #
@@ -62,7 +62,6 @@ def main():
 
   parser.add_argument("--buffer-size", type=int, default=BUFFER_SIZE, help="An integer of the number of bytes to read at a time from the stream. Defaults to %s" % (BUFFER_SIZE,))
   parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="An integer of the number of rows to write to the database at a time. If you turn off WAL mode, a lower number makes it more likely that your database will be locked when you try to query it. Defaults to %s" % (BATCH_SIZE,))
-  parser.add_argument("--connect-attempt-limit", type=int, default=CONNECT_ATTEMPT_LIMIT, help="An integer of the number of times to try (and fail) to connect to the dump1090 broadcast before qutting. Defaults to %s" % (CONNECT_ATTEMPT_LIMIT,))
   parser.add_argument("--connect-attempt-delay", type=float, default=CONNECT_ATTEMPT_DELAY, help="The number of seconds to wait after a failed connection attempt before trying again. Defaults to %s" % (CONNECT_ATTEMPT_DELAY,))
 
   # parse command line options
@@ -74,7 +73,6 @@ def main():
   # print args.accumulate(args.in)
   count_since_commit = 0
   count_total = 0
-  count_failed_connection_attempts = 1
 
   print "%s: Connecting to mysql..." % args.client_id
   conn = mysql.connector.connect(
@@ -99,18 +97,7 @@ def main():
 
   # open a socket connection
   print "%s: Connecting to dump1090..." % args.client_id
-  while count_failed_connection_attempts < args.connect_attempt_limit:
-    try:
-      s = connect_to_socket(args.location, args.port)
-      count_failed_connection_attempts = 1
-      print "%s: Connected to dump1090 broadcast" % args.client_id
-      break
-    except socket.error:
-      count_failed_connection_attempts += 1
-      print "%s: Cannot connect to dump1090 broadcast. Making attempt %s." % (args.client_id, count_failed_connection_attempts)
-      time.sleep(args.connect_attempt_delay)
-  else:
-    quit()
+  s = connect_to_socket(args.location, args.port)
 
   # listen to socket for data
   data_str = ""
@@ -134,20 +121,7 @@ def main():
         print ts, "No broadcast received. Attempting to reconnect"
         time.sleep(args.connect_attempt_delay)
         s.close()
-
-        while count_failed_connection_attempts < args.connect_attempt_limit:
-          try:
-            s = connect_to_socket(args.location, args.port)
-            count_failed_connection_attempts = 1
-            print "Reconnected!"
-            break
-          except socket.error:
-            count_failed_connection_attempts += 1
-            print "The attempt failed. Making attempt %s." % (count_failed_connection_attempts)
-            time.sleep(args.connect_attempt_delay)
-        else:
-          quit()
-
+        s = connect_to_socket(args.location, args.port)
         continue
 
       # it is possible that more than one line has been received
@@ -326,10 +300,11 @@ def main():
 
           except mysql.connector.Error:
             print
-            print ts, "Could not write to database, will try to insert %s rows on next commit" % (count_since_commit + args.batch_size,)
+            print ts, "Could not write to database"
             print line
             traceback.print_exc()
-            print
+            raise
+            sys.exit(1)
 
 
           # since everything was valid we reset the stream message
@@ -345,11 +320,14 @@ def main():
     conn.commit()
     conn.close()
     print ts, "%s squitters added to your database" % (count_total,)
+    sys.exit(0)
+
 
   except mysql.connector.Error as err:
     print "Error with ", line
     traceback.print_exc()
-    quit()
+    raise
+    sys.exit(1)
 
 def connect_to_socket(loc,port):
   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -399,6 +377,20 @@ def table_setup(dbcursor):
     CHARACTER SET utf8
     COLLATE utf8_general_ci
   """)
+  #dbcursor.execute("""CREATE TABLE IF NOT EXISTS
+  #  callsigns(
+  #    icao_addr         MEDIUMINT UNSIGNED NOT NULL,
+  #    callsign          TEXT,
+  #    parsed_time       DATETIME NOT NULL,
+  #    INDEX idx_parsed_time(parsed_time),
+  #    INDEX idx_icao_addr(icao_addr),
+  #    PRIMARY KEY (icao_addr, parsed_time)
+  #  )
+  #  ENGINE=InnoDB
+  #  ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
+  #  CHARACTER SET utf8
+  #  COLLATE utf8_general_ci
+  #""")
 
 
 
