@@ -13,9 +13,9 @@ import sys
 #defaults
 HOST = "localhost"
 PORT = 30003
-BUFFER_SIZE = 100
+BUFFER_SIZE = 50
 BATCH_SIZE = 20
-CONNECT_ATTEMPT_DELAY = 5.0
+CONNECT_ATTEMPT_DELAY = 1.0
 
 #
 TRANSMISSION_TYPE_TTL = (
@@ -27,6 +27,7 @@ TRANSMISSION_TYPE_TTL = (
   datetime.timedelta(seconds=10),  #5: altitude-only
   datetime.timedelta(seconds=1),  #6: squawk
   None,  #7: altitude-only -> #5
+  None,  #8: -> 2
 )
 TRANSMISSION_TYPE_ALIAS = (
   0,
@@ -36,7 +37,8 @@ TRANSMISSION_TYPE_ALIAS = (
   4,
   5,
   6,
-  5  # 7 -> 5
+  5, # 7 -> 5
+  2, # 8 -> 2
 )
 
 # we'll discard any rows with `transmission_type` not in this set.
@@ -45,7 +47,7 @@ TRANSMISSION_TYPE_ALIAS = (
 # your mileage may vary. see the following:
 #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
 #    https://github.com/wiseman/node-sbs1
-ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7})
+ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7,8})
 
 def main():
   #set up command line options
