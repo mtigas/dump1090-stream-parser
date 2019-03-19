@@ -10,17 +10,29 @@ You can read about the general ADS-B "basestation" data format [here](http://woo
 
 You'll need a dump1090 instance running somewhere accessable on your network.
 
-The script also currently relies on a MySQL database hosted on the same machine. (`host=127.0.0.1 database=dump1090 user=dump1090 password=dump1090`) [MySQL innodb table compression](https://dev.mysql.com/doc/refman/5.7/en/innodb-compression-background.html) is used, so your mileage may vary depending on your mysql server version and configuration.
+The script also currently relies on a MySQL database that's accessible from the pi. (`host=127.0.0.1 database=dump1090 user=dump1090 password=dump1090`) [MySQL innodb table compression](https://dev.mysql.com/doc/refman/5.7/en/innodb-compression-background.html) is used, so your mileage may vary depending on your mysql server version and configuration.
 
-If dump1090 is runing on your current machine and you have the database set up, running
+This script creates the DB table necessary for this -- you just need a database that the mysql user can access.
+
+If dump1090 is runing on your current machine and you have the database set up, the following should work:
 
 ```sh
 python dump1090-stream-parser.py
 ```
 
-should automatically connect to it.
-
 Stop the stream by hitting control + c. This will write any remaining uncommitted lines to the database and exit.
+
+---
+
+If you're using the flightaware raspbian "piaware" distribution, you only have to do the following:
+
+* Make sure the pi is feeding to flightaware
+* Add a `mlat-results-format basestation,listen,31003` line to `/boot/piaware-config.txt`. (Note: not sure if this is actually necessary)
+* `sudo apt install python-mysql.connector`
+
+Then you should be able to run or script calls to `python dump1090-stream-parser.py` as you wish.
+
+---
 
 > **Note**: This fork also performs some filtering & data processing to turn numeric values into their native mysql times, catch null values, and otherwise optimize for efficient data storage (along with database table compression). This hasn’t been thoroughly tested yet and *may* result in some data loss compared to the original script (and the raw SBS data stream).
 
