@@ -82,7 +82,8 @@ def main():
     port=args.mysql_port,
     user=args.mysql_user,
     password=args.mysql_pass,
-    database=args.mysql_database
+    database=args.mysql_database,
+    auth_plugin='mysql_native_password',
   )
   cur = conn.cursor()
   print "%s: Connected." % args.client_id
