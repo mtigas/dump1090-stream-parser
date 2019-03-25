@@ -62,6 +62,8 @@ def main():
   parser.add_argument("--mysql-pass", type=str, default="dump1090")
   parser.add_argument("--mysql-database", type=str, default="dump1090")
 
+  parser.add_argument('--no-compress', default=False, action='store_true')
+
   parser.add_argument("--buffer-size", type=int, default=BUFFER_SIZE, help="An integer of the number of bytes to read at a time from the stream. Defaults to %s" % (BUFFER_SIZE,))
   parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="An integer of the number of rows to write to the database at a time. If you turn off WAL mode, a lower number makes it more likely that your database will be locked when you try to query it. Defaults to %s" % (BATCH_SIZE,))
   parser.add_argument("--connect-attempt-delay", type=float, default=CONNECT_ATTEMPT_DELAY, help="The number of seconds to wait after a failed connection attempt before trying again. Defaults to %s" % (CONNECT_ATTEMPT_DELAY,))
@@ -89,7 +91,11 @@ def main():
   print "%s: Connected." % args.client_id
 
   # set up the table if neccassary
-  table_setup(cur)
+  if args.no_compress:
+      compress = False
+  else:
+      compress = True
+  table_setup(cur, compress)
 
   # log {(icao, msgtype): timestamp} pairs to eliminate some duplicate
   # entries. based on a timestamp here, we throttle based on
@@ -338,11 +344,15 @@ def connect_to_socket(loc,port):
   return s
 
 
-def table_setup(dbcursor):
+def table_setup(dbcursor, compress=True):
   # data format info:
   #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
   #    https://github.com/wiseman/node-sbs1
   #dbcursor.execute("DROP TABLE IF EXISTS squitters")
+  if compress:
+      compress_arg = "ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4"
+  else:
+      compress_arg = ""
   dbcursor.execute("""CREATE TABLE IF NOT EXISTS
     squitters(
       message_type      VARCHAR(3) NOT NULL,
@@ -376,10 +386,10 @@ def table_setup(dbcursor):
       INDEX idx_client_id(client_id)
     )
     ENGINE=InnoDB
-    ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4
+    {compress_arg}
     CHARACTER SET utf8
     COLLATE utf8_general_ci
-  """)
+  """.format(compress_arg=compress_arg))
   #dbcursor.execute("""CREATE TABLE IF NOT EXISTS
   #  callsigns(
   #    icao_addr         MEDIUMINT UNSIGNED NOT NULL,
