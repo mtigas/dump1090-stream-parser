@@ -21,3 +21,18 @@ example usage:
 	  --psql-sslkey='/home/pi/client-dump1090.key' \
 	  --psql-database=flightdata
 ```
+
+---
+
+using a postgis backend allows the use of some geometry-based queries, like the following (which fetches the 10 records closest to a given point `40.7252912, -74.0050364`)
+```sql
+SELECT parsed_time,
+       icao_addr,
+       ST_AsText(latlon),
+       ST_Distance_Sphere(latlon, st_setsrid(ST_MakePoint(-74.0050364,40.7252912),4326)) AS distance_meters
+FROM squitters
+WHERE latlon IS NOT NULL
+  AND ST_DistanceSphere(latlon, ST_SetSRID(ST_MakePoint(-74.0050364,40.7252912),4326)) <= 10000
+ORDER BY latlon <-> ST_SetSRID(ST_MakePoint(-74.0050364,40.7252912),4326)
+LIMIT 10;
+```

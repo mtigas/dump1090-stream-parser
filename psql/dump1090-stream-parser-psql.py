@@ -50,7 +50,8 @@ TRANSMISSION_TYPE_ALIAS = (
 # your mileage may vary. see the following:
 #    http://woodair.net/SBS/Article/Barebones42_Socket_Data.htm
 #    https://github.com/wiseman/node-sbs1
-ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7,8})
+#ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7,8})
+ONLY_LOG_TYPES = frozenset({1,2,3,4,5,6,7})
 
 def main():
   #set up command line options
